@@ -1,4 +1,4 @@
---Readme document for *author(s)*, *email(s)*, *UCI id(s)*--
+Christine Nguyen, chrisln4@uci.edu, 70228903 && Timothy Le, leth4@uci.edu, 87088090
 
 1. How many assignment points do you believe you completed (replace the *'s with your numbers)?
 
