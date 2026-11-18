@@ -47,4 +47,37 @@
       <ion-button expand="block" [disabled]="!isSleepValid()" (click)="saveSleep()">Save sleep</ion-button>
     </ion-card-content>
   </ion-card>
+  <!--log sleepiness card-->
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>How sleepy are you feeling?</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <!--slider from 1 (wide awake) to 7 (almost asleep) -->
+      <ion-range min="1" max="7" step="1" [snaps]="true" [ticks]="true" [pin]="true" [(ngModel)]="sleepiness">
+        <ion-icon slot="start" name="sunny"></ion-icon>
+        <ion-icon slot="end" name="moon"></ion-icon>
+      </ion-range>
+
+      <!--Stanford Sleepiness Scale ; what number means-->
+      <p class="scale-text">{{ sleepiness }}: {{ sleepinessDescription }}</p>
+
+      <ion-list>
+        <ion-item>
+          <ion-label>Time</ion-label>
+          <ion-datetime-button datetime="sleepinessPicker" slot="end"></ion-datetime-button>
+        </ion-item>
+      </ion-list>
+
+      <!--pop-up calendar for sleepiness time -->
+      <ion-modal [keepContentsMounted]="true">
+        <ng-template>
+          <ion-datetime id="sleepinessPicker" [(ngModel)]="sleepinessTime" [showDefaultButtons]="true"></ion-datetime>
+        </ng-template>
+      </ion-modal>
+
+      <ion-button expand="block" (click)="saveSleepiness()">Save sleepiness</ion-button>
+    </ion-card-content>
+  </ion-card>
 </ion-content>
