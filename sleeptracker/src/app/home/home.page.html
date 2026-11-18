@@ -15,12 +15,32 @@
 <!--log sleep card-->
   <ion-card>
     <ion-card-header>
-      <ion-card-title>Log your sleep from last night</ion-card-title>
+      <ion-card-title>Log last night's sleep</ion-card-title>
     </ion-card-header>
 
     <ion-card-content>
-      <h2>I slept at</h2>
-      <ion-datetime presentation="date-time" [preferWheel]="true" [(ngModell)]="wakeTime"></ion-datetime>
+      <ion-list>
+        <ion-item> <!--user selects date and time for bedtime and wake time-->
+          <ion-label>Your Bedtime</ion-label>
+          <ion-datetime-button datetime="bedtimePicker" slot="end"></ion-datetime-button>
+        </ion-item>
+        <ion-item>
+          <ion-label>Your Wake Time</ion-label>
+          <ion-datetime-button datetime="wakePicker" slot="end"></ion-datetime-button>
+        </ion-item>
+      </ion-list>
+
+      <!-- the pop-up calendars -->
+      <ion-modal [keepContentsMounted]="true">
+        <ng-template>
+          <ion-datetime id="bedtimePicker" [(ngModel)]="bedtime" [showDefaultButtons]="true"></ion-datetime>
+        </ng-template>
+      </ion-modal>
+      <ion-modal [keepContentsMounted]="true">
+        <ng-template>
+          <ion-datetime id="wakePicker" [(ngModel)]="wakeTime" [showDefaultButtons]="true"></ion-datetime>
+        </ng-template>
+      </ion-modal>
       @if (!isSleepValid()){
         <p class="error-text"> Your wake up time should be after your bed time.</p>
       }
