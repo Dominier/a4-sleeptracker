@@ -17,8 +17,8 @@ Christine Nguyen, chrisln4@uci.edu, 70228903 && Timothy Le, leth4@uci.edu, 87088
 
 
 3. What online resources did you consult when completing this assignment? (list specific URLs)
-
-
+https://ionicframework.com/docs/theming/color-generator 
+https://www.med.upenn.edu/cbti/assets/user-content/documents/Stanford%20Sleepiness%20Scale.pdf
 
 4. What classmates or other individuals did you consult as part of this assignment? What did you discuss?
 
