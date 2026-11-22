@@ -1,11 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { IonHeader, IonToolbar, IonTitle, IonContent,IonCard,IonCardHeader,
-	IonCardTitle, IonCardContent,IonDatetime,IonButton,ToastController,
+	IonCardTitle, IonCardContent,IonDatetime,IonButton,ToastController,AlertController,
 	IonDatetimeButton,IonModal,IonList,IonItem,IonLabel,IonRange,IonIcon} from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { sunny, moon } from 'ionicons/icons';
 import { SleepService } from '../services/sleep.service';
-import { SleepData } from '../data/sleep-data';
 import { OvernightSleepData } from '../data/overnight-sleep-data';
 import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
 import{FormsModule} from '@angular/forms'
@@ -14,7 +14,7 @@ import{FormsModule} from '@angular/forms'
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent,IonCard,IonCardHeader,
+  imports: [DatePipe, IonHeader, IonToolbar, IonTitle, IonContent,IonCard,IonCardHeader,
 	IonCardTitle, IonCardContent,IonDatetime,IonButton,FormsModule,
 	IonDatetimeButton,IonModal,IonList,IonItem,IonLabel,IonRange,IonIcon],
 })
@@ -24,7 +24,12 @@ export class HomePage {
 	wakeTime:string='';
 	sleepiness:number=4;//sleepiness rating, starting in middle at 4
 	sleepinessTime:string='';
-	constructor(public sleepService:SleepService, public toastController:ToastController){
+	readonly saving = signal(false);
+	constructor(
+		public sleepService: SleepService,
+		public toastController: ToastController,
+		private alertController: AlertController
+	) {
 		//choices on a set time
 		var lastNight = new Date();
 		lastNight.setDate(lastNight.getDate()-1);
@@ -38,14 +43,7 @@ export class HomePage {
 		this.sleepinessTime= this.toPickerString(new Date()); //sleepiness starts now
 		addIcons({sunny, moon}); //icons for slider
 	}
-	ngOnInit(){ 
-		console.log(this.allSleepData);
-	}
-
-	/* Ionic doesn't allow bindings to static variables, so this getter can be used instead. */
-	get allSleepData() {
-		return SleepService.AllSleepData;
-	}//standardizing local time string like '2026-07-12 T22:00:00'
+	//standardizing local time string like '2026-07-12T22:00:00'
 	toPickerString(date:Date):string {
 		var offset = date.getTimezoneOffset() * 60 * 1000;
 		var localDate = new Date(date.getTime() - offset);
@@ -58,36 +56,73 @@ export class HomePage {
 		return end > start;
 	}
 
-	saveSleep() {
-		var start = new Date(this.bedtime);
-		var end = new Date(this.wakeTime);
-		this.sleepService.logOvernightData(new OvernightSleepData(start, end));
-		console.log(this.allSleepData);
+	async saveSleep() {
+		const start = new Date(this.bedtime);
+		const end = new Date(this.wakeTime);
+		this.saving.set(true);
 
-		this.toastController.create({
-			message: 'Your sleep time has been saved!',
-			duration: 2000
-		}).then((toast) => {
-			toast.present();
-		});
+		try {
+			await this.sleepService.logOvernightData(new OvernightSleepData(start, end));
+		} catch {
+			await this.showToast('Could not save your sleep. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
+		await this.showToast('Your sleep time has been saved!');
 	}
 	//text that matches picked number on Stanford Sleepiness Scale
 	get sleepinessDescription() {
 		return StanfordSleepinessData.ScaleValues[this.sleepiness];
 	}
 
-	saveSleepiness() {
-		var time = new Date(this.sleepinessTime);
-		this.sleepService.logSleepinessData(new StanfordSleepinessData(this.sleepiness, time));
-		console.log(this.allSleepData);
+	async saveSleepiness() {
+		const time = new Date(this.sleepinessTime);
+		this.saving.set(true);
 
-		//reset the time to now for the next log
+		try {
+			await this.sleepService.logSleepinessData(new StanfordSleepinessData(this.sleepiness, time));
+		} catch {
+			await this.showToast('Could not save your sleepiness. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
 		this.sleepinessTime = this.toPickerString(new Date());
-		this.toastController.create({
-			message: 'Your sleepiness value has been saved!',
-			duration: 2000//confirmation when saving sleepiness
-		}).then((toast) => {
-			toast.present();
+		await this.showToast('Your sleepiness value has been saved!');
+	}
+
+	async confirmDelete(log: OvernightSleepData | StanfordSleepinessData) {
+		const alert = await this.alertController.create({
+			header: 'Delete this entry?',
+			buttons: [
+				{ text: 'Cancel', role: 'cancel' },
+				{ text: 'Delete', role: 'confirm' }
+			]
 		});
+		await alert.present();
+		const { role } = await alert.onDidDismiss();
+		if (role !== 'confirm') {
+			return;
+		}
+
+		this.saving.set(true);
+		try {
+			await this.sleepService.deleteLog(log);
+		} catch {
+			await this.showToast('Could not delete this entry. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
+		await this.showToast('Entry deleted.');
+	}
+
+	private async showToast(message: string) {
+		const toast = await this.toastController.create({ message, duration: 2000 });
+		await toast.present();
 	}
 }

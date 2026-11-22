@@ -1,50 +1,96 @@
-import { Injectable } from '@angular/core';
-import { SleepData } from '../data/sleep-data';
+import { Injectable, signal, WritableSignal } from '@angular/core';
+import { Preferences } from '@capacitor/preferences';
 import { OvernightSleepData } from '../data/overnight-sleep-data';
 import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
 
+const overnightKey = 'overnight-logs';
+const sleepinessKey = 'sleepiness-logs';
+
+interface SavedOvernightLog {
+	id: string;
+	loggedAt: string;
+	sleepStart: string;
+	sleepEnd: string;
+}
+
+interface SavedSleepinessLog {
+	id: string;
+	loggedAt: string;
+	loggedValue: number;
+}
+
 @Injectable({
-  providedIn: 'root'
+	providedIn: 'root'
 })
 export class SleepService {
-	private static LoadDefaultData:boolean = true;
-	public static AllSleepData:SleepData[] = [];
-	public static AllOvernightData:OvernightSleepData[] = [];
-	public static AllSleepinessData:StanfordSleepinessData[] = [];
+	readonly overnightLogs = signal<OvernightSleepData[]>([]);
+	readonly sleepinessLogs = signal<StanfordSleepinessData[]>([]);
+	readonly historyStatus = signal<'loading' | 'ready' | 'error'>('loading');
 
-	constructor() {
-		if(SleepService.LoadDefaultData) {
-			this.addDefaultData();
-		SleepService.LoadDefaultData = false;
-	}
+	private pendingSave = this.loadLogs();
+
+	private async loadLogs() {
+		try {
+			const [overnight, sleepiness] = await Promise.all([
+				Preferences.get({ key: overnightKey }),
+				Preferences.get({ key: sleepinessKey })
+			]);
+			const savedOvernight: SavedOvernightLog[] = JSON.parse(overnight.value ?? '[]');
+			const savedSleepiness: SavedSleepinessLog[] = JSON.parse(sleepiness.value ?? '[]');
+
+			// JSON stores dates as strings, so recreate the log objects for the history.
+			const overnightLogs = savedOvernight.map(saved => {
+				const log = new OvernightSleepData(new Date(saved.sleepStart), new Date(saved.sleepEnd));
+				log.id = saved.id;
+				log.loggedAt = new Date(saved.loggedAt);
+				return log;
+			});
+			const sleepinessLogs = savedSleepiness.map(saved => {
+				const log = new StanfordSleepinessData(saved.loggedValue, new Date(saved.loggedAt));
+				log.id = saved.id;
+				return log;
+			});
+
+			this.overnightLogs.set(overnightLogs);
+			this.sleepinessLogs.set(sleepinessLogs);
+			this.historyStatus.set('ready');
+		} catch {
+			this.historyStatus.set('error');
+		}
 	}
 
-	private addDefaultData() {
-		var goToBed = new Date();
-		goToBed.setDate(goToBed.getDate() - 1); //set to yesterday
-		goToBed.setHours(1, 3, 0); //1:03am
-		var wakeUp = new Date();
-		wakeUp.setTime(goToBed.getTime() + 8 * 60 * 60 * 1000); //Sleep for exactly eight hours, waking up at 9:03am
-		this.logOvernightData(new OvernightSleepData(goToBed, wakeUp)); // add that person was asleep 1am-9am yesterday
-		var sleepinessDate = new Date();
-		sleepinessDate.setDate(sleepinessDate.getDate() - 1); //set to yesterday
-		sleepinessDate.setHours(14, 38, 0); //2:38pm
-		this.logSleepinessData(new StanfordSleepinessData(4, sleepinessDate)); // add sleepiness at 2pm
-		goToBed = new Date();
-		goToBed.setDate(goToBed.getDate() - 1); //set to yesterday
-		goToBed.setHours(23, 11, 0); //11:11pm
-		wakeUp = new Date();
-		wakeUp.setTime(goToBed.getTime() + 9 * 60 * 60 * 1000); //Sleep for exactly nine hours
-		this.logOvernightData(new OvernightSleepData(goToBed, wakeUp));
+	logOvernightData(log: OvernightSleepData) {
+		return this.updateLogs(overnightKey, this.overnightLogs, logs => [...logs, log]);
 	}
 
-	public logOvernightData(sleepData:OvernightSleepData) {
-		SleepService.AllSleepData.push(sleepData);
-		SleepService.AllOvernightData.push(sleepData);
+	logSleepinessData(log: StanfordSleepinessData) {
+		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs => [...logs, log]);
 	}
 
-	public logSleepinessData(sleepData:StanfordSleepinessData) {
-		SleepService.AllSleepData.push(sleepData);
-		SleepService.AllSleepinessData.push(sleepData);
+	deleteLog(log: OvernightSleepData | StanfordSleepinessData) {
+		if (log instanceof OvernightSleepData) {
+			return this.updateLogs(overnightKey, this.overnightLogs, logs =>
+				logs.filter(entry => entry.id !== log.id));
+		}
+
+		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs =>
+			logs.filter(entry => entry.id !== log.id));
+	}
+
+	private updateLogs<T>(key: string, logs: WritableSignal<T[]>, update: (logs: T[]) => T[]) {
+		// Wait for history to load and for any earlier save to finish.
+		const save = this.pendingSave.then(async () => {
+			if (this.historyStatus() !== 'ready') {
+				throw new Error('Could not load saved logs.');
+			}
+
+			const updatedLogs = update(logs());
+			await Preferences.set({ key, value: JSON.stringify(updatedLogs) });
+			logs.set(updatedLogs);
+		});
+
+		// A failed save should still allow the next attempt.
+		this.pendingSave = save.catch(() => {});
+		return save;
 	}
 }
