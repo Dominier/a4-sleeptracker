@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Preferences } from '@capacitor/preferences';
 import { OvernightSleepData } from '../data/overnight-sleep-data';
 import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
 
@@ -13,37 +14,36 @@ export class SleepService {
 		this.loadData(); //getting saved logs when app opens
 	}
 
-	//loading saved logs from local storage
+	//loading saved logs from Preferences storage
 	private loadData() {
-		SleepService.AllOvernightData = [];
-		SleepService.AllSleepinessData = [];
-
-		var savedOvernight = localStorage.getItem('overnightData');
-		if (savedOvernight) {
-			var overnightList = JSON.parse(savedOvernight);
-			for (var i = 0; i < overnightList.length; i++) {
-				//dates get saved as text so changing them back to dates
-				var sleepLog = new OvernightSleepData(new Date(overnightList[i].sleepStart), new Date(overnightList[i].sleepEnd));
-				sleepLog.id = overnightList[i].id;
-				SleepService.AllOvernightData.push(sleepLog);
+		Preferences.get({ key: 'overnightData' }).then((result) => {
+			if (result.value) {
+				var overnightList = JSON.parse(result.value);
+				for (var i = 0; i < overnightList.length; i++) {
+					//dates get saved as text so changing them back to dates
+					var sleepLog = new OvernightSleepData(new Date(overnightList[i].sleepStart), new Date(overnightList[i].sleepEnd));
+					sleepLog.id = overnightList[i].id;
+					SleepService.AllOvernightData.push(sleepLog);
+				}
 			}
-		}
+		});
 
-		var savedSleepiness = localStorage.getItem('sleepinessData');
-		if (savedSleepiness) {
-			var sleepinessList = JSON.parse(savedSleepiness);
-			for (var j = 0; j < sleepinessList.length; j++) {
-				var sleepinessLog = new StanfordSleepinessData(sleepinessList[j].loggedValue, new Date(sleepinessList[j].loggedAt));
-				sleepinessLog.id = sleepinessList[j].id;
-				SleepService.AllSleepinessData.push(sleepinessLog);
+		Preferences.get({ key: 'sleepinessData' }).then((result) => {
+			if (result.value) {
+				var sleepinessList = JSON.parse(result.value);
+				for (var j = 0; j < sleepinessList.length; j++) {
+					var sleepinessLog = new StanfordSleepinessData(sleepinessList[j].loggedValue, new Date(sleepinessList[j].loggedAt));
+					sleepinessLog.id = sleepinessList[j].id;
+					SleepService.AllSleepinessData.push(sleepinessLog);
+				}
 			}
-		}
+		});
 	}
 
-	//saving both lists to local storage so they stay after refresh
+	//saving both lists to Preferences so they stay after refresh
 	private saveData() {
-		localStorage.setItem('overnightData', JSON.stringify(SleepService.AllOvernightData));
-		localStorage.setItem('sleepinessData', JSON.stringify(SleepService.AllSleepinessData));
+		Preferences.set({ key: 'overnightData', value: JSON.stringify(SleepService.AllOvernightData) });
+		Preferences.set({ key: 'sleepinessData', value: JSON.stringify(SleepService.AllSleepinessData) });
 	}
 
 	public logOvernightData(sleepData:OvernightSleepData) {
