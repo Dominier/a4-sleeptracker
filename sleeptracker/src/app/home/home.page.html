@@ -80,4 +80,41 @@
       <ion-button expand="block" (click)="saveSleepiness()">Save sleepiness</ion-button>
     </ion-card-content>
   </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Sleep history</ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <h2>Overnight sleep</h2>
+      <ion-list>
+        @for (log of overnightLogs; track log.id) {
+          <ion-item>
+            <ion-label class="ion-text-wrap">
+              <h3>{{ log.summaryString() }}</h3>
+              <p>Bedtime: {{ log.sleepStart | date:'MMM d, y, h:mm a' }}</p>
+              <p>Wake time: {{ log.sleepEnd | date:'MMM d, y, h:mm a' }}</p>
+            </ion-label>
+          </ion-item>
+        } @empty {
+          <ion-item>No overnight sleep logged yet.</ion-item>
+        }
+      </ion-list>
+
+      <h2>Daytime sleepiness</h2>
+      <ion-list>
+        @for (log of sleepinessLogs; track log.id) {
+          <ion-item>
+            <ion-label class="ion-text-wrap">
+              <h3>{{ log.summaryString() }}</h3>
+              <p>{{ log.loggedAt | date:'MMM d, y, h:mm a' }}</p>
+            </ion-label>
+          </ion-item>
+        } @empty {
+          <ion-item>No sleepiness logged yet.</ion-item>
+        }
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
 </ion-content>
