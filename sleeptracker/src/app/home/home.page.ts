@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { IonHeader, IonToolbar, IonTitle, IonContent,IonCard,IonCardHeader,
 	IonCardTitle, IonCardContent,IonDatetime,IonButton,ToastController,
@@ -24,6 +24,7 @@ export class HomePage {
 	wakeTime:string='';
 	sleepiness:number=4;//sleepiness rating, starting in middle at 4
 	sleepinessTime:string='';
+	readonly saving = signal(false);
 	constructor(public sleepService:SleepService, public toastController:ToastController){
 		//choices on a set time
 		var lastNight = new Date();
@@ -38,14 +39,6 @@ export class HomePage {
 		this.sleepinessTime= this.toPickerString(new Date()); //sleepiness starts now
 		addIcons({sunny, moon}); //icons for slider
 	}
-	get overnightLogs() {
-		return SleepService.AllOvernightData;
-	}
-
-	get sleepinessLogs() {
-		return SleepService.AllSleepinessData;
-	}
-
 	//standardizing local time string like '2026-07-12T22:00:00'
 	toPickerString(date:Date):string {
 		var offset = date.getTimezoneOffset() * 60 * 1000;
@@ -59,34 +52,46 @@ export class HomePage {
 		return end > start;
 	}
 
-	saveSleep() {
-		var start = new Date(this.bedtime);
-		var end = new Date(this.wakeTime);
-		this.sleepService.logOvernightData(new OvernightSleepData(start, end));
+	async saveSleep() {
+		const start = new Date(this.bedtime);
+		const end = new Date(this.wakeTime);
+		this.saving.set(true);
 
-		this.toastController.create({
-			message: 'Your sleep time has been saved!',
-			duration: 2000
-		}).then((toast) => {
-			toast.present();
-		});
+		try {
+			await this.sleepService.logOvernightData(new OvernightSleepData(start, end));
+		} catch {
+			await this.showToast('Could not save your sleep. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
+		await this.showToast('Your sleep time has been saved!');
 	}
 	//text that matches picked number on Stanford Sleepiness Scale
 	get sleepinessDescription() {
 		return StanfordSleepinessData.ScaleValues[this.sleepiness];
 	}
 
-	saveSleepiness() {
-		var time = new Date(this.sleepinessTime);
-		this.sleepService.logSleepinessData(new StanfordSleepinessData(this.sleepiness, time));
+	async saveSleepiness() {
+		const time = new Date(this.sleepinessTime);
+		this.saving.set(true);
 
-		//reset the time to now for the next log
+		try {
+			await this.sleepService.logSleepinessData(new StanfordSleepinessData(this.sleepiness, time));
+		} catch {
+			await this.showToast('Could not save your sleepiness. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
 		this.sleepinessTime = this.toPickerString(new Date());
-		this.toastController.create({
-			message: 'Your sleepiness value has been saved!',
-			duration: 2000//confirmation when saving sleepiness
-		}).then((toast) => {
-			toast.present();
-		});
+		await this.showToast('Your sleepiness value has been saved!');
+	}
+
+	private async showToast(message: string) {
+		const toast = await this.toastController.create({ message, duration: 2000 });
+		await toast.present();
 	}
 }
