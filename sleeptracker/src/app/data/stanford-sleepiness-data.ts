@@ -22,11 +22,8 @@ export class StanfordSleepinessData extends SleepData {
 	}
 
 	override summaryString():string {
-		return this.loggedValue + ": " + StanfordSleepinessData.ScaleValues[this.loggedValue];
-	}
-
-	//showing the time too since sleepiness can be logged more than once a day
-	override dateString():string {
-		return this.loggedAt.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		//showing the time too since sleepiness can be logged more than once a day
+		var time = this.loggedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+		return this.loggedValue + ": " + StanfordSleepinessData.ScaleValues[this.loggedValue] + " (" + time + ")";
 	}
 }
