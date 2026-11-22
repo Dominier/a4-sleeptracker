@@ -1,96 +1,69 @@
-import { Injectable, signal, WritableSignal } from '@angular/core';
-import { Preferences } from '@capacitor/preferences';
+import { Injectable } from '@angular/core';
 import { OvernightSleepData } from '../data/overnight-sleep-data';
 import { StanfordSleepinessData } from '../data/stanford-sleepiness-data';
 
-const overnightKey = 'overnight-logs';
-const sleepinessKey = 'sleepiness-logs';
-
-interface SavedOvernightLog {
-	id: string;
-	loggedAt: string;
-	sleepStart: string;
-	sleepEnd: string;
-}
-
-interface SavedSleepinessLog {
-	id: string;
-	loggedAt: string;
-	loggedValue: number;
-}
-
 @Injectable({
-	providedIn: 'root'
+  providedIn: 'root'
 })
 export class SleepService {
-	readonly overnightLogs = signal<OvernightSleepData[]>([]);
-	readonly sleepinessLogs = signal<StanfordSleepinessData[]>([]);
-	readonly historyStatus = signal<'loading' | 'ready' | 'error'>('loading');
+	public static AllOvernightData:OvernightSleepData[] = [];
+	public static AllSleepinessData:StanfordSleepinessData[] = [];
 
-	private pendingSave = this.loadLogs();
-
-	private async loadLogs() {
-		try {
-			const [overnight, sleepiness] = await Promise.all([
-				Preferences.get({ key: overnightKey }),
-				Preferences.get({ key: sleepinessKey })
-			]);
-			const savedOvernight: SavedOvernightLog[] = JSON.parse(overnight.value ?? '[]');
-			const savedSleepiness: SavedSleepinessLog[] = JSON.parse(sleepiness.value ?? '[]');
-
-			// JSON stores dates as strings, so recreate the log objects for the history.
-			const overnightLogs = savedOvernight.map(saved => {
-				const log = new OvernightSleepData(new Date(saved.sleepStart), new Date(saved.sleepEnd));
-				log.id = saved.id;
-				log.loggedAt = new Date(saved.loggedAt);
-				return log;
-			});
-			const sleepinessLogs = savedSleepiness.map(saved => {
-				const log = new StanfordSleepinessData(saved.loggedValue, new Date(saved.loggedAt));
-				log.id = saved.id;
-				return log;
-			});
-
-			this.overnightLogs.set(overnightLogs);
-			this.sleepinessLogs.set(sleepinessLogs);
-			this.historyStatus.set('ready');
-		} catch {
-			this.historyStatus.set('error');
-		}
+	constructor() {
+		this.loadData(); //getting saved logs when app opens
 	}
 
-	logOvernightData(log: OvernightSleepData) {
-		return this.updateLogs(overnightKey, this.overnightLogs, logs => [...logs, log]);
-	}
+	//loading saved logs from local storage
+	private loadData() {
+		SleepService.AllOvernightData = [];
+		SleepService.AllSleepinessData = [];
 
-	logSleepinessData(log: StanfordSleepinessData) {
-		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs => [...logs, log]);
-	}
-
-	deleteLog(log: OvernightSleepData | StanfordSleepinessData) {
-		if (log instanceof OvernightSleepData) {
-			return this.updateLogs(overnightKey, this.overnightLogs, logs =>
-				logs.filter(entry => entry.id !== log.id));
-		}
-
-		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs =>
-			logs.filter(entry => entry.id !== log.id));
-	}
-
-	private updateLogs<T>(key: string, logs: WritableSignal<T[]>, update: (logs: T[]) => T[]) {
-		// Wait for history to load and for any earlier save to finish.
-		const save = this.pendingSave.then(async () => {
-			if (this.historyStatus() !== 'ready') {
-				throw new Error('Could not load saved logs.');
+		var savedOvernight = localStorage.getItem('overnightData');
+		if (savedOvernight) {
+			var overnightList = JSON.parse(savedOvernight);
+			for (var i = 0; i < overnightList.length; i++) {
+				//dates get saved as text so changing them back to dates
+				var sleepLog = new OvernightSleepData(new Date(overnightList[i].sleepStart), new Date(overnightList[i].sleepEnd));
+				sleepLog.id = overnightList[i].id;
+				SleepService.AllOvernightData.push(sleepLog);
 			}
+		}
 
-			const updatedLogs = update(logs());
-			await Preferences.set({ key, value: JSON.stringify(updatedLogs) });
-			logs.set(updatedLogs);
-		});
+		var savedSleepiness = localStorage.getItem('sleepinessData');
+		if (savedSleepiness) {
+			var sleepinessList = JSON.parse(savedSleepiness);
+			for (var j = 0; j < sleepinessList.length; j++) {
+				var sleepinessLog = new StanfordSleepinessData(sleepinessList[j].loggedValue, new Date(sleepinessList[j].loggedAt));
+				sleepinessLog.id = sleepinessList[j].id;
+				SleepService.AllSleepinessData.push(sleepinessLog);
+			}
+		}
+	}
 
-		// A failed save should still allow the next attempt.
-		this.pendingSave = save.catch(() => {});
-		return save;
+	//saving both lists to local storage so they stay after refresh
+	private saveData() {
+		localStorage.setItem('overnightData', JSON.stringify(SleepService.AllOvernightData));
+		localStorage.setItem('sleepinessData', JSON.stringify(SleepService.AllSleepinessData));
+	}
+
+	public logOvernightData(sleepData:OvernightSleepData) {
+		SleepService.AllOvernightData.push(sleepData);
+		this.saveData();
+	}
+
+	public logSleepinessData(sleepData:StanfordSleepinessData) {
+		SleepService.AllSleepinessData.push(sleepData);
+		this.saveData();
+	}
+
+	//keeping every log except the one being deleted
+	public deleteOvernightData(sleepData:OvernightSleepData) {
+		SleepService.AllOvernightData = SleepService.AllOvernightData.filter((log) => log.id != sleepData.id);
+		this.saveData();
+	}
+
+	public deleteSleepinessData(sleepData:StanfordSleepinessData) {
+		SleepService.AllSleepinessData = SleepService.AllSleepinessData.filter((log) => log.id != sleepData.id);
+		this.saveData();
 	}
 }

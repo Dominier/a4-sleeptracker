@@ -33,18 +33,18 @@
       <!-- the pop-up calendars -->
       <ion-modal [keepContentsMounted]="true">
         <ng-template>
-          <ion-datetime id="bedtimePicker" [(ngModel)]="bedtime" [showDefaultButtons]="true"></ion-datetime>
+          <ion-datetime id="bedtimePicker" [(ngModel)]="bedtime" [max]="maxDate" [showDefaultButtons]="true"></ion-datetime>
         </ng-template>
       </ion-modal>
       <ion-modal [keepContentsMounted]="true">
         <ng-template>
-          <ion-datetime id="wakePicker" [(ngModel)]="wakeTime" [showDefaultButtons]="true"></ion-datetime>
+          <ion-datetime id="wakePicker" [(ngModel)]="wakeTime" [max]="maxDate" [showDefaultButtons]="true"></ion-datetime>
         </ng-template>
       </ion-modal>
       @if (!isSleepValid()){
-        <p class="error-text"> Your wake up time should be after your bed time.</p>
+        <p class="error-text"> Your wake up time should be after your bed time and not in the future.</p>
       }
-      <ion-button expand="block" [disabled]="!isSleepValid() || saving() || sleepService.historyStatus() !== 'ready'" (click)="saveSleep()">Save sleep</ion-button>
+      <ion-button expand="block" [disabled]="!isSleepValid()" (click)="saveSleep()">Save sleep</ion-button>
     </ion-card-content>
   </ion-card>
   <!--log sleepiness card-->
@@ -73,60 +73,50 @@
       <!--pop-up calendar for sleepiness time -->
       <ion-modal [keepContentsMounted]="true">
         <ng-template>
-          <ion-datetime id="sleepinessPicker" [(ngModel)]="sleepinessTime" [showDefaultButtons]="true"></ion-datetime>
+          <ion-datetime id="sleepinessPicker" [(ngModel)]="sleepinessTime" [max]="maxDate" [showDefaultButtons]="true"></ion-datetime>
         </ng-template>
       </ion-modal>
 
-      <ion-button expand="block" [disabled]="saving() || sleepService.historyStatus() !== 'ready'" (click)="saveSleepiness()">Save sleepiness</ion-button>
+      <ion-button expand="block" (click)="saveSleepiness()">Save sleepiness</ion-button>
     </ion-card-content>
   </ion-card>
 
+  <!--sleep history with a delete button on each log-->
   <ion-card>
     <ion-card-header>
       <ion-card-title>Sleep history</ion-card-title>
     </ion-card-header>
 
     <ion-card-content>
-      @if (sleepService.historyStatus() === 'loading') {
-        <p role="status">Loading your sleep history…</p>
-      } @else if (sleepService.historyStatus() === 'error') {
-        <p role="alert">ERROR: Could not load your sleep history</p>
-      } @else {
-        <h2>Overnight sleep</h2>
-        <ion-list>
-          @for (log of sleepService.overnightLogs(); track log.id) {
-            <ion-item>
-              <ion-label class="ion-text-wrap">
-                <h3>{{ log.summaryString() }}</h3>
-                <p>Bedtime: {{ log.sleepStart | date:'MMM d, y, h:mm a' }}</p>
-                <p>Wake time: {{ log.sleepEnd | date:'MMM d, y, h:mm a' }}</p>
-              </ion-label>
-              <ion-button slot="end" fill="clear" color="danger" [disabled]="saving()"
-                [attr.aria-label]="'Delete overnight sleep from ' + (log.sleepStart | date:'MMM d, y, h:mm a')"
-                (click)="confirmDelete(log)">Delete</ion-button>
-            </ion-item>
-          } @empty {
-            <ion-item>No overnight sleep logged yet.</ion-item>
-          }
-        </ion-list>
+      <h2>Overnight sleep</h2>
+      <ion-list>
+        @for (log of overnightData; track log.id) {
+          <ion-item>
+            <ion-label class="ion-text-wrap">
+              <h3>{{ log.dateString() }}</h3>
+              <p>{{ log.summaryString() }}</p>
+            </ion-label>
+            <ion-button slot="end" fill="clear" color="danger" (click)="deleteOvernight(log)">Delete</ion-button>
+          </ion-item>
+        } @empty {
+          <ion-item>No overnight sleep logged yet.</ion-item>
+        }
+      </ion-list>
 
-        <h2>Daytime sleepiness</h2>
-        <ion-list>
-          @for (log of sleepService.sleepinessLogs(); track log.id) {
-            <ion-item>
-              <ion-label class="ion-text-wrap">
-                <h3>{{ log.summaryString() }}</h3>
-                <p>{{ log.loggedAt | date:'MMM d, y, h:mm a' }}</p>
-              </ion-label>
-              <ion-button slot="end" fill="clear" color="danger" [disabled]="saving()"
-                [attr.aria-label]="'Delete sleepiness entry from ' + (log.loggedAt | date:'MMM d, y, h:mm a')"
-                (click)="confirmDelete(log)">Delete</ion-button>
-            </ion-item>
-          } @empty {
-            <ion-item>No sleepiness level logged yet.</ion-item>
-          }
-        </ion-list>
-      }
+      <h2>Daytime sleepiness</h2>
+      <ion-list>
+        @for (log of sleepinessData; track log.id) {
+          <ion-item>
+            <ion-label class="ion-text-wrap">
+              <h3>{{ log.dateString() }}</h3>
+              <p>{{ log.summaryString() }}</p>
+            </ion-label>
+            <ion-button slot="end" fill="clear" color="danger" (click)="deleteSleepiness(log)">Delete</ion-button>
+          </ion-item>
+        } @empty {
+          <ion-item>No sleepiness level logged yet.</ion-item>
+        }
+      </ion-list>
     </ion-card-content>
   </ion-card>
 </ion-content>
