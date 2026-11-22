@@ -101,6 +101,9 @@
                 <p>Bedtime: {{ log.sleepStart | date:'MMM d, y, h:mm a' }}</p>
                 <p>Wake time: {{ log.sleepEnd | date:'MMM d, y, h:mm a' }}</p>
               </ion-label>
+              <ion-button slot="end" fill="clear" color="danger" [disabled]="saving()"
+                [attr.aria-label]="'Delete overnight sleep from ' + (log.sleepStart | date:'MMM d, y, h:mm a')"
+                (click)="confirmDelete(log)">Delete</ion-button>
             </ion-item>
           } @empty {
             <ion-item>No overnight sleep logged yet.</ion-item>
@@ -115,6 +118,9 @@
                 <h3>{{ log.summaryString() }}</h3>
                 <p>{{ log.loggedAt | date:'MMM d, y, h:mm a' }}</p>
               </ion-label>
+              <ion-button slot="end" fill="clear" color="danger" [disabled]="saving()"
+                [attr.aria-label]="'Delete sleepiness entry from ' + (log.loggedAt | date:'MMM d, y, h:mm a')"
+                (click)="confirmDelete(log)">Delete</ion-button>
             </ion-item>
           } @empty {
             <ion-item>No sleepiness level logged yet.</ion-item>

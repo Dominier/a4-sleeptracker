@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { IonHeader, IonToolbar, IonTitle, IonContent,IonCard,IonCardHeader,
-	IonCardTitle, IonCardContent,IonDatetime,IonButton,ToastController,
+	IonCardTitle, IonCardContent,IonDatetime,IonButton,ToastController,AlertController,
 	IonDatetimeButton,IonModal,IonList,IonItem,IonLabel,IonRange,IonIcon} from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { sunny, moon } from 'ionicons/icons';
@@ -25,7 +25,11 @@ export class HomePage {
 	sleepiness:number=4;//sleepiness rating, starting in middle at 4
 	sleepinessTime:string='';
 	readonly saving = signal(false);
-	constructor(public sleepService:SleepService, public toastController:ToastController){
+	constructor(
+		public sleepService: SleepService,
+		public toastController: ToastController,
+		private alertController: AlertController
+	) {
 		//choices on a set time
 		var lastNight = new Date();
 		lastNight.setDate(lastNight.getDate()-1);
@@ -88,6 +92,33 @@ export class HomePage {
 
 		this.sleepinessTime = this.toPickerString(new Date());
 		await this.showToast('Your sleepiness value has been saved!');
+	}
+
+	async confirmDelete(log: OvernightSleepData | StanfordSleepinessData) {
+		const alert = await this.alertController.create({
+			header: 'Delete this entry?',
+			buttons: [
+				{ text: 'Cancel', role: 'cancel' },
+				{ text: 'Delete', role: 'confirm' }
+			]
+		});
+		await alert.present();
+		const { role } = await alert.onDidDismiss();
+		if (role !== 'confirm') {
+			return;
+		}
+
+		this.saving.set(true);
+		try {
+			await this.sleepService.deleteLog(log);
+		} catch {
+			await this.showToast('Could not delete this entry. Please try again.');
+			return;
+		} finally {
+			this.saving.set(false);
+		}
+
+		await this.showToast('Entry deleted.');
 	}
 
 	private async showToast(message: string) {

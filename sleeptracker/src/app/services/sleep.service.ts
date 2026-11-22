@@ -60,21 +60,31 @@ export class SleepService {
 	}
 
 	logOvernightData(log: OvernightSleepData) {
-		return this.saveLog(overnightKey, this.overnightLogs, log);
+		return this.updateLogs(overnightKey, this.overnightLogs, logs => [...logs, log]);
 	}
 
 	logSleepinessData(log: StanfordSleepinessData) {
-		return this.saveLog(sleepinessKey, this.sleepinessLogs, log);
+		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs => [...logs, log]);
 	}
 
-	private saveLog<T>(key: string, logs: WritableSignal<T[]>, log: T) {
+	deleteLog(log: OvernightSleepData | StanfordSleepinessData) {
+		if (log instanceof OvernightSleepData) {
+			return this.updateLogs(overnightKey, this.overnightLogs, logs =>
+				logs.filter(entry => entry.id !== log.id));
+		}
+
+		return this.updateLogs(sleepinessKey, this.sleepinessLogs, logs =>
+			logs.filter(entry => entry.id !== log.id));
+	}
+
+	private updateLogs<T>(key: string, logs: WritableSignal<T[]>, update: (logs: T[]) => T[]) {
 		// Wait for history to load and for any earlier save to finish.
 		const save = this.pendingSave.then(async () => {
 			if (this.historyStatus() !== 'ready') {
 				throw new Error('Could not load saved logs.');
 			}
 
-			const updatedLogs = [...logs(), log];
+			const updatedLogs = update(logs());
 			await Preferences.set({ key, value: JSON.stringify(updatedLogs) });
 			logs.set(updatedLogs);
 		});
